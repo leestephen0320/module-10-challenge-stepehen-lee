@@ -37,6 +37,7 @@ await connectToDb();
 class Cli {
     // property that will enable the performActions(); to exit
     exit = false;
+    departmentFields = []
 
     // query functions
     async viewAllEmployees() {
@@ -78,13 +79,22 @@ class Cli {
             const res = await pool.query(text);
             let departments = [];
             for (let i=0; i<res.rows.length; i++) {
-                departments.push(res.rows[i].department_name)
+                departments.push(res.rows[i].department_name);
             }
             return departments;
         } catch (err) {
             console.error('Error executing query',err.stack)
         }
      }
+    
+    // async departmentFieldsReturn() {
+    //     departments = await this.getDepartment();
+    //     departmentFields = this.getDepartment().map(department => ({
+    //         department_name: department.department_name
+    //     }))
+    //     return this.departmentFields;
+    // }
+     
 
      async viewAllRoles() {
         try {
@@ -112,7 +122,21 @@ class Cli {
         }
      }
 
-    performActions() {
+     async getRole() {
+        try {
+            const text = `SELECT * FROM roles`;
+            const res = await pool.query(text);
+            let roles = [];
+            for (let i=0; i<res.rows.length; i++) {
+                roles.push(res.rows[i].role_name)
+            }
+            return roles;
+        } catch (err) {
+            console.error('Error executing query',err.stack)
+        }
+     }
+
+    async performActions() {
         inquirer
             .prompt([
                 {
@@ -139,37 +163,73 @@ class Cli {
                         .prompt([
                             {
                                 type: 'input',
-                                name: 'employee',
-                                message: 'What'
-                            }
+                                name: 'first_name',
+                                message: `What is the employee's first name?`
+                            },
+                            {
+                                type: 'input',
+                                name: 'last_name',
+                                message: `What is the employee's last name?`
+                            },
+                            {
+                                type: 'list',
+                                name: 'role',
+                                message: `What is the employee's role?`,
+                                list: this.getRole()
+                            },
                         ])
                 } else if (answers.action === 'Update Employee Role') {
                     
                 } else if (answers.action === 'View All Roles') {
                     this.viewAllRoles();
                 } else if (answers.action === 'Add Role') {
-                    inquirer
-                        .prompt([
+                    return this.getDepartment().then(departmentsChoices => {
+                        return inquirer.prompt([
                             {
                                 type: 'input',
-                                name: 'role',
+                                name: 'title',
                                 message: 'What is the name of the role?',
                             },
                             {
                                 type: 'input',
                                 name: 'salary',
-                                message: 'What is the salary of the role?'
+                                message: 'What is the salary of the role?',
                             },
                             {
                                 type: 'list',
-                                name: 'department',
+                                name: 'department_id',
                                 message: 'Which department does it belong to?',
-                                list: [this.getDepartment()]
-                            }
-                        ])
-                        .then((answer) => {
-
-                        })
+                                choices: departmentsChoices,
+                            },
+                        ]);
+                    }).then(roleAnswers => {
+                        console.log(`Added ${roleAnswers.title} to the database`);
+                        return this.addRole(roleAnswers.title, roleAnswers.salary, roleAnswers.department_id);
+                    });
+                    // inquirer
+                    //     .prompt([
+                    //         {
+                    //             type: 'input',
+                    //             name: 'role',
+                    //             message: 'What is the name of the role?',
+                    //         },
+                    //         {
+                    //             type: 'input',
+                    //             name: 'salary',
+                    //             message: 'What is the salary of the role?'
+                    //         },
+                    //         {
+                    //             type: 'list',
+                    //             name: 'department',
+                    //             message: 'Which department does it belong to?',
+                    //             list: this.getDepartment(),
+                    //         }
+                    //     ])
+                    //     .then((answer) => {
+                    //         this.addRole(answer.title,answer.salary,answer.department);
+                    //         console.log(`Added ${answer.title} to the database`)
+                    //     })
+                    // return this.performActions();
                 } else if (answers.action === 'View All Departments') {
                     const res = this.viewAllDepartments();
                     console.table(res.rows);
@@ -200,4 +260,6 @@ class Cli {
 }
 
 const cli = new Cli;
-//cli.performActions();
+// cli.getDepartment().then()
+// console.log(departments);
+cli.performActions();
