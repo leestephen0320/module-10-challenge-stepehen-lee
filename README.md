@@ -28,8 +28,6 @@ Set the password to your personal password to your Postgres.
 
 Run the application in the terminal through `node index.js`.
 
-![alt text](assets/images/screenshot.png)
-
 ### View All Employees
 
 Tables all relevant employee data on the terminal.
@@ -70,4 +68,4 @@ Distributed under the MIT License.
 
 ## Tests
 
-Try to put the following inputs after running the code.
+Try to follow along with the video.
