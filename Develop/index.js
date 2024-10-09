@@ -2,6 +2,12 @@ import pg from 'pg';
 import inquirer from "inquirer";
 import dotenv from 'dotenv';
 
+import EventEmitter from 'events';
+const emitter = new EventEmitter(); // Create an instance of EventEmitter
+
+// Now you can set the maximum listeners
+emitter.setMaxListeners(15); // Example: setting max listeners to 10
+
 dotenv.config();
 
 // connect to data base
@@ -37,9 +43,10 @@ await connectToDb();
 class Cli {
     // property that will enable the performActions(); to exit
     exit = false;
-    departmentFields = []
 
     // query functions
+
+        // SELECT quereies
     async viewAllEmployees() {
         try {
             const text = `SELECT e.id AS id, e.first_name AS first_name, e.last_name AS last_name, roles.title AS 
@@ -48,44 +55,101 @@ class Cli {
                 LEFT JOIN employee m on e.manager_id = m.id`;
             const res = await pool.query(text);
             console.table(res.rows);
+            return;
         } catch (err) {
             console.error('Error executing query',err.stack)
         }
     };
 
+    async viewAllDepartments() {
+        try {
+            const text = `SELECT * FROM department`;
+            const res = await pool.query(text);
+            console.table(res.rows);
+            return;
+        } catch (err) {
+            console.error('Error executing query',err.stack)
+        }
+    };
+
+    async viewAllRoles() {
+        try {
+            const text = `SELECT r.id AS if, r.title AS title, d.department_name AS department, r.salary AS salary
+                FROM roles r
+                JOIN department d ON r.department_id = d.id`
+            const res = await pool.query(text);
+            console.table(res.rows);
+            return;
+        } catch (err) {
+            console.error('Error executing query',err.stack)
+        }
+     }
+
+        // INSERT INTO queries
     async addEmployee(firstName,lastName,role,manager) {
         try {
             const text1 = `SELECT id FROM roles WHERE title = '${role}'`;
             const res1 = await pool.query(text1);
+            const resIDr = res1.rows[0].id;
 
             const text2 =  `SELECT id
                 FROM employee e
                 WHERE CONCAT(e.first_name,' ',e.last_name) = '${manager}'`;
             const res2 = await pool.query(text2);
+            const resIDe = res2.rows[0].id;
 
             const text3 = `INSERT INTO employee (first_name,last_name,role_id,manager_id)
-                VALUES (${firstName},${lastName},${res1.rows[0]},${res2.rows[0]})`;
-            const res3 = await pool.query(text3);
-            console.table(res3.rows);
+                VALUES ('${firstName}','${lastName}',${resIDr},${resIDe})`;
+            await pool.query(text3);
+            //this.performActions();
+            return;
         } catch (err) {
             console.error('Error executing query',err.stack)
         }
      }
 
+     async addDepartment(department) {
+        try {
+            const text = `INSERT INTO department (department_name) VALUES ('${department}')`;
+            await pool.query(text);
+            //this.performActions();            
+            return;
+        } catch (err) {
+            console.error('Error executing query',err.stack)
+        }
+     }
+
+     async addRole(title,salary,department) {
+        try {
+            const text1 = `SELECT id FROM department WHERE department_name = '${department}'`;
+            const res1 = await pool.query(text1);
+            const resID = res1.rows[0].id;
+            const text2 = `INSERT INTO roles (title,salary,department_id)
+                VALUES ('${title}',${salary},${resID})`;
+            await pool.query(text2);
+            //this.performActions();
+            return;
+        } catch (err) {
+            console.error('Error executing query',err.stack)
+        }
+     }
+        // UPDATE query
      async updateEmployee(employeeName,role) {
         try {
             const text1 = `SELECT id FROM roles WHERE title = '${role}'`;
             const res1 = await pool.query(text1);
-
-            const text3 = `UPDATE employee SET role_id = ${res1.rows[0]} 
+            const roleID = res1.rows[0].id;
+            const text3 = `UPDATE employee e SET role_id = ${roleID} 
                 WHERE CONCAT(e.first_name,' ',e.last_name) = '${employeeName}'`;
-            const res3 = await pool.query(text3);
-            console.table(res3.rows);
+            await pool.query(text3);
+            // this.performActions();
+            return;
         } catch (err) {
             console.error('Error executing query',err.stack)
         }
      }
 
+        // misc SELECT queries needed for functionality
      async getEmployees() {
         try {
             const text = `SELECT CONCAT(e.first_name,' ',e.last_name) AS employee_name FROM employee e`;
@@ -100,26 +164,6 @@ class Cli {
         }
      }
 
-    async viewAllDepartments() {
-        try {
-            const text = `SELECT * FROM department`;
-            const res = await pool.query(text);
-            console.table(res.rows);
-        } catch (err) {
-            console.error('Error executing query',err.stack)
-        }
-    };
-
-    async addDepartment(department) {
-        try {
-            const text = `INSERT INTO department (name) VALUES '${department}'`;
-            const res = await pool.query(text);
-            console.table(res.rows);
-        } catch (err) {
-            console.error('Error executing query',err.stack)
-        }
-     }
-
      async getDepartment() {
         try {
             const text = `SELECT * FROM department`;
@@ -129,18 +173,6 @@ class Cli {
                 departments.push(res.rows[i].department_name);
             }
             return departments;
-        } catch (err) {
-            console.error('Error executing query',err.stack)
-        }
-     }
-
-     async viewAllRoles() {
-        try {
-            text = `SELECT r.id AS if, r.title AS title, d.department_name AS department, r.salary AS salary
-                FROM roles r
-                JOIN department d ON r.department_id = d.id`
-            const res = await pool.query(text);
-            console.table(res.rows);
         } catch (err) {
             console.error('Error executing query',err.stack)
         }
@@ -176,20 +208,7 @@ class Cli {
         }
      }
 
-     async addRole(title,salary,department) {
-        try {
-            const text1 = `SELECT id FROM department WHERE department_name = '${department}'`;
-            const res1 = await pool.query(text1);
-
-            const text2 = `INSERT INTO roles (title,salary,department_id)
-                VALUES (${title},${salary},${res1.rows[0]}),`;
-            const res2 = await pool.query(text2);
-            console.table(res2.rows);
-        } catch (err) {
-            console.error('Error executing query',err.stack)
-        }
-     }
-
+        // start of COMMAND LINE INQUIRES
     async performActions() {
         inquirer
             .prompt([
@@ -212,6 +231,7 @@ class Cli {
             .then((answers) => {
                 if (answers.action === 'View All Employees') {
                     this.viewAllEmployees();
+                    this.performActions()
                 } else if (answers.action === 'Add Employee') {
                     return this.getRoles().then(roleChoices => {
                         return this.getManagers().then(managerChoices => {
@@ -240,35 +260,11 @@ class Cli {
                                 }
                             ]).then(employeeAnswers => {
                                 console.log(`Added ${employeeAnswers.first_name} ${employeeAnswers.last_name} to the database`)
-                                return this.addEmployee(employeeAnswers.firstName,employeeAnswers.lastName,employeeAnswers.role,employeeAnswers.manager);
+                                this.addEmployee(employeeAnswers.first_name,employeeAnswers.last_name,employeeAnswers.role,employeeAnswers.manager);
+                                return this.performActions();
                             });
                         })
                     });
-                    // inquirer
-                    //     .prompt([
-                    //         {
-                    //             type: 'input',
-                    //             name: 'first_name',
-                    //             message: `What is the employee's first name?`
-                    //         },
-                    //         {
-                    //             type: 'input',
-                    //             name: 'last_name',
-                    //             message: `What is the employee's last name?`
-                    //         },
-                    //         {
-                    //             type: 'list',
-                    //             name: 'role',
-                    //             message: `What is the employee's role?`,
-                    //             list: this.getRole()
-                    //         },
-                    //         {
-                    //             type: 'list',
-                    //             name: 'manager',
-                    //             message: `Who is the employee's manager?`,
-                    //             list: this.getRole()
-                    //         },
-                    //     ])
                 } else if (answers.action === 'Update Employee Role') {
                     return this.getEmployees().then(employeeChoices =>{
                         return this.getRoles().then(roleChoices =>{
@@ -287,12 +283,14 @@ class Cli {
                                 },
                             ]).then(updateAnswers => {
                                 console.log(`Updated ${updateAnswers.employeeName}'s role`);
-                                return this.updateEmployee(updateAnswers.employeeAnswers,updateAnswers.role);
+                                this.updateEmployee(updateAnswers.employeeName,updateAnswers.role);
+                                return this.performActions();
                             })
                         })
                     })
                 } else if (answers.action === 'View All Roles') {
                     this.viewAllRoles();
+                    this.performActions()
                 } else if (answers.action === 'Add Role') {
                     return this.getDepartment().then(departmentsChoices => {
                         return inquirer.prompt([
@@ -315,35 +313,13 @@ class Cli {
                         ]);
                     }).then(roleAnswers => {
                         console.log(`Added ${roleAnswers.title} to the database`);
-                        return this.addRole(roleAnswers.title, roleAnswers.salary, roleAnswers.department_id);
+                        this.addRole(roleAnswers.title, roleAnswers.salary, roleAnswers.department_id);
+                        return this.performActions();
                     });
-                    // inquirer
-                    //     .prompt([
-                    //         {
-                    //             type: 'input',
-                    //             name: 'role',
-                    //             message: 'What is the name of the role?',
-                    //         },
-                    //         {
-                    //             type: 'input',
-                    //             name: 'salary',
-                    //             message: 'What is the salary of the role?'
-                    //         },
-                    //         {
-                    //             type: 'list',
-                    //             name: 'department',
-                    //             message: 'Which department does it belong to?',
-                    //             list: this.getDepartment(),
-                    //         }
-                    //     ])
-                    //     .then((answer) => {
-                    //         this.addRole(answer.title,answer.salary,answer.department);
-                    //         console.log(`Added ${answer.title} to the database`)
-                    //     })
-                    // return this.performActions();
                 } else if (answers.action === 'View All Departments') {
                     const res = this.viewAllDepartments();
                     console.table(res.rows);
+                    this.performActions()
                 } else if (answers.action === 'Add Department') {
                     inquirer
                         .prompt([
@@ -355,7 +331,7 @@ class Cli {
                         ])
                         .then((answer) => {
                             this.addDepartment(answer.department);
-                            console.log(`Added ${answer.department} to the database.`);
+                            return this.performActions();
                         })
                 } else {
                     // exit the client if user selects exit
@@ -363,7 +339,7 @@ class Cli {
                 }
                 if (!this.exit) {
                     // if the user does not want to exit, start the client again
-                    this.performActions();
+                    //this.performActions();
                 }
 
             });
@@ -371,7 +347,23 @@ class Cli {
 }
 
 const cli = new Cli;
-// cli.getDepartment().then()
-const roles1 = await cli.getEmployees();
-console.log(roles1);
-//cli.performActions();
+
+console.log(`
+=== ===  ==   ==  === ==   ====      == ==   ==  ==   === ===  === ===  
+ ==  ==   == ==    ==  ==   ==      ==   ==  ==  ==    ==  ==   ==  ==  
+ ==      = === =   ==  ==   ==      ==   ==  ==  ==    ==       ==      
+ == ==   == = ==   ==  ==   ==      ==   ==   == ==    == ==    == ==   
+ ==      ==   ==   == ==    ==      ==   ==    ==      ==       ==      
+ ==  ==  ==   ==   ==       ==  ==  ==   ==    ==      ==  ==   ==  ==  
+=== ===  ==   ==  ====     === ===   == ==     ==     === ===  === ===  
+                                                                        
+==   ==    ==     ===  ==    ==      == ==   === ===  === ==   
+ == ==      ==      == ==     ==    ==   ==   ==  ==   ==  ==  
+= === =   == ==    = == =   == ==   ==        ==       ==  ==  
+== = ==   ==  ==   == ==    ==  ==  ==  ===   == ==    == ==   
+==   ==   == ===   ==  ==   == ===  ==   ==   ==       == ==   
+==   ==   ==  ==   ==  ==   ==  ==  ==   ==   ==  ==   ==  ==  
+==   ==  ===  ==  ===  ==  ===  ==   == ==   === ===  ==== == 
+`)
+
+cli.performActions();
